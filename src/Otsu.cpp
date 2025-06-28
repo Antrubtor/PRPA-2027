@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <thread>
+#include <vector>
 
 // Single threaded version of the Method
 static void otsu(ImageView<rgb8> in)
@@ -26,13 +27,58 @@ static void otsu(ImageView<rgb8> in)
 
 void otsu_baseline(ImageView<rgb8> in)
 {
-  // TODO
-  otsu(in);
-  // You can fake a long-time process with sleep
-  {
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(100ms);
-  }
+    // TODO
+    std::vector<int> grey_hist = std::vector<int>(255, 0);
+    for (int y = 0; y < in.height; ++y)
+    {
+        rgb8* lineptr = (rgb8*)((std::byte*)in.buffer + y * in.stride);
+        for (int x = 0; x < in.width; ++x)
+        {
+            rgb8 pixel = lineptr[x];
+            uint8_t grey_value = 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
+            /*uint8_t grey_value = 0.299 * pixel.r + 0.587 * pixel.g + 0.114 * pixel.b;*/
+            grey_hist[grey_value]++;
+            lineptr[x] = { grey_value, grey_value, grey_value };
+        }
+    }
+    int sum1 = 0;
+    int sumB = 0;
+    float wB = 0.0f;
+    float wF = 0.0f;
+    float mF = 0.0f;
+    float max_var = 0.0f;
+    int N = in.height * in.width;
+    float inter_var = 0.0f;
+    unsigned char threshold = 0;
+    for (int i = 0; i < 255; i++)
+        sum1 += i * grey_hist[i];
+    for (int i = 0; i < 255; i++)
+    {
+        wB += grey_hist[i];
+        wF = N - wB;
+        if (wB == 0 || wF == 0)
+            continue;
+        sumB += i * grey_hist[i];
+        mF = (sum1 - sumB) / wF;
+        inter_var = wB * wF * ((sumB / wB) - mF) * ((sumB / wB) - mF);
+        if (inter_var >= max_var)
+        {
+            threshold = i;
+            max_var = inter_var;
+        }
+    }
+    for (int y = 0; y < in.height; ++y)
+    {
+        rgb8* lineptr = (rgb8*)((std::byte*)in.buffer + y * in.stride);
+        for (int x = 0; x < in.width; ++x)
+        {
+            rgb8 pixel = lineptr[x];
+            if (pixel.r < threshold)
+                lineptr[x] = { 0, 0, 0 };
+            else
+                lineptr[x] = { 255, 255, 255 };
+        }
+    }
 }
 
 
