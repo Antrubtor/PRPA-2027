@@ -60,7 +60,11 @@ int main(int argc, char* argv[])
 
 
   // Create a GStreamer pipeline to stream a video through our plugin
+  // const char* pipe_str = "filesrc name=fsrc ! decodebin ! videoconvert ! video/x-raw, format=(string)RGB ! myfilter ! videoconvert ! fpsdisplaysink video-sink=autovideosink sync=false";
   const char* pipe_str = "filesrc name=fsrc ! decodebin ! videoconvert ! video/x-raw, format=(string)RGB ! myfilter ! videoconvert ! fpsdisplaysink sync=false";
+  // const char* pipe_str = "filesrc name=fsrc ! decodebin ! imagefreeze ! videorate ! video/x-raw,framerate=30/1 ! videoconvert ! video/x-raw, format=RGB ! myfilter ! videoconvert ! fpsdisplaysink sync=false";
+
+
 
   GError *error = NULL;
   auto pipeline = gst_parse_launch(pipe_str, &error);
