@@ -7,6 +7,7 @@ find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(benchmark REQUIRED)
 find_package(fmt REQUIRED)
+find_package(TBB REQUIRED)
 
 
 pkg_check_modules(GStreamer REQUIRED gstreamer-1.0 IMPORTED_TARGET)
@@ -28,7 +29,7 @@ configure_file(src/resources.cpp.in src/resources.cpp)
 
 add_library(stb_image src/stb_image.h src/stb_image.c)
 add_library(Otsu src/Otsu.cpp src/logo.c)
-target_link_libraries(Otsu PRIVATE Threads::Threads)
+target_link_libraries(Otsu PRIVATE Threads::Threads TBB::tbb)
 
 add_executable(stream src/stream.cpp src/gstfilter.c src/gstfilter.h)
 target_link_libraries(stream PRIVATE PkgConfig::GStreamerVideo Otsu)
@@ -37,4 +38,4 @@ add_executable(bench src/bench.cpp  src/resources.cpp)
 set_source_files_properties(src/resources.cpp PROPERTIES GENERATED TRUE)
 
 
-target_link_libraries(bench PRIVATE benchmark::benchmark Otsu stb_image fmt::fmt)
+target_link_libraries(bench PRIVATE benchmark::benchmark Otsu stb_image fmt::fmt TBB::tbb)
