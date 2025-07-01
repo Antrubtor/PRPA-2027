@@ -2,10 +2,10 @@
 
 class PrioritySet
 {
-    public
+    public:
     int val;
     PrioritySet next;
-    
+
     // Insère 'value' s'il n'est pas déjà présent
     // Retourne true si l'insertion a été faite, false sinon
     bool insert(int value);
