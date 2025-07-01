@@ -4,8 +4,9 @@ class PrioritySet
 {
     public:
     int val;
-    PrioritySet next;
+    PrioritySet* next;
 
+    PrioritySet(int value);
     // Insère 'value' s'il n'est pas déjà présent
     // Retourne true si l'insertion a été faite, false sinon
     bool insert(int value);
@@ -22,4 +23,4 @@ class PrioritySet
 
     // Retourne et supprime l'élément avec la plus petite valeur
     int pop_min();
-}
+};
