@@ -26,13 +26,16 @@ bool PrioritySet::insert(int value)
 bool PrioritySet::remove(int value)
 {
     PrioritySet* tmp = this;
+    PrioritySet* prev = this;
     while (tmp != nullptr)
     {
         if (tmp->val == value)
         {
-            tmp->next = tmp->next->next;
+            prev->next = tmp->next;
             return true;
         }
+        prev = tmp;
+        tmp = tmp->next;
     }
     return false;
 }
@@ -46,6 +49,7 @@ bool PrioritySet::has(int value)
         {
             return true;
         }
+        tmp = tmp->next;
     }
     return false;
 }
