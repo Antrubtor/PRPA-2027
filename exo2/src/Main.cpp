@@ -34,7 +34,7 @@ void min_popper(PrioritySet& ps, int id) {
 
 
 int main() {
-    PrioritySet ps;
+    PrioritySet ps = PrioritySet(2);
 
     std::thread t1(inserter, std::ref(ps), 0, 10);
     t1.join(); 

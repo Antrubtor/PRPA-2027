@@ -3,67 +3,121 @@
 #include <climits>
 #include "PrioritySet.h"
 
+PrioritySet::PrioritySet(int k_value) : k(k_value) {
+    size_t size_l3 = ((1ULL << (k * 3)) + 63) / 64;
+    size_t size_l2 = ((1ULL << (k * 2)) + 63) / 64;
+    size_t size_l1 = ((1ULL << k) + 63) / 64;
+
+    level3.resize(size_l3);
+    level2.resize(size_l2);
+    level1.resize(size_l1);
+
+    for (auto& l : level3) l = 0;
+    for (auto& l : level2) l = 0;
+    for (auto& l : level1) l = 0;
+}
+
 bool PrioritySet::insert(int value) {
-    if (value < 0 || value > 63) return false;
-        uint64_t mask3 = 1ULL << value;
-        int idx2 = value / 4;
-        int idx1 = value / 16;
-        // Vérifier présence
-        if (level3.load() & mask3) return false;
+    if (value < 0 || value >= (1 << (k * 3))) return false;
 
-        // Insertion atomique
-        level3.fetch_or(mask3);
-        level2.fetch_or(1U << idx2);
-        level1.fetch_or(1U << idx1);
+    int i3 = value / 64;
+    int bit3 = value % 64;
+    int i2 = value >> k;
+    int i1 = value >> (k * 2);
 
-        return true;
+    uint64_t mask3 = 1ULL << bit3;
+    if (level3[i3] & mask3) {
+        return false;
+    }
+
+    level3[i3] |= mask3;
+    level2[i2 / 64] |= 1ULL << (i2 % 64);
+    level1[i1 / 64] |= 1ULL << (i1 % 64);
+
+    return true;
 }
 
 bool PrioritySet::remove(int value) {
-    if (value < 0 || value > 63) return false;
+    if (value < 0 || value >= (1 << (k * 3))) return false;
 
-    uint64_t mask3 = 1ULL << value;
-    int block2 = value / 4;
-    int block1 = value / 16;
+    int i3 = value / 64;
+    int bit3 = value % 64;
+    int i2 = value >> k;
+    int i1 = value >> (k * 2);
 
-    // Vérifie si absent
-    if (!(level3.load(std::memory_order_relaxed) & mask3))
+    uint64_t mask3 = 1ULL << bit3;
+    if (!(level3[i3] & mask3)) {
         return false;
+    }
 
     locker.lock();
-    // Éteint le bit
-    level3.fetch_and(~mask3, std::memory_order_relaxed);
 
-    // Nettoyage conditionnel niveau 2
-    uint64_t block_mask3 = 0xFULL << (block2 * 4);
-    if ((level3.load() & block_mask3) == 0)
-        level2.fetch_and(~(1U << block2), std::memory_order_relaxed);
+    level3[i3] &= ~mask3;
 
-    // Nettoyage conditionnel niveau 1
-    uint16_t block_mask2 = 0xFU << (block1 * 4);
-    if ((level2.load() & block_mask2) == 0)
-        level1.fetch_and(~(1U << block1), std::memory_order_relaxed);
+    bool block3_empty = true;
+    for (int i = 0; i < 64; ++i) {
+        if (level3[(i2 << k) + i]) {
+            block3_empty = false;
+            break;
+        }
+    }
+    if (block3_empty)
+        level2[i2 / 64] &= ~(1ULL << (i2 % 64));
+
+    bool block2_empty = true;
+    for (int i = 0; i < 64; ++i) {
+        if (level2[(i1 << k) + i]) {
+            block2_empty = false;
+            break;
+        }
+    }
+    if (block2_empty)
+        level1[i1 / 64] &= ~(1ULL << (i1 % 64));
 
     locker.unlock();
     return true;
 }
 
 bool PrioritySet::has(int value) {
-    if (value < 0 || value > 63) return false;
-    return (level3.load(std::memory_order_relaxed) >> value) & 1;
+    if (value < 0 || value >= (1 << (k * 3))) return false;
+
+    int i3 = value / 64;
+    int bit3 = value % 64;
+    return (level3[i3] >> bit3) & 1;
 }
 
 int PrioritySet::get_min() {
-    uint8_t l1 = level1.load(std::memory_order_relaxed);
-    if (l1 == 0) return -1;
+    locker.lock();
 
-    int i1 = __builtin_ctz(l1);
-    uint16_t l2 = level2.load(std::memory_order_relaxed);
-    int i2 = __builtin_ctz((l2 >> (i1 * 4)) & 0xF);
-    uint64_t l3 = level3.load(std::memory_order_relaxed);
-    int i3 = __builtin_ctz((l3 >> (i1 * 16 + i2 * 4)) & 0xF);
+    for (size_t i1 = 0; i1 < level1.size(); ++i1) {
+        uint64_t l1 = level1[i1];
+        if (l1 == 0) continue;
 
-    return i1 * 16 + i2 * 4 + i3;
+        int b1 = __builtin_ctzll(l1);
+        int group1 = i1 * 64 + b1;
+
+        for (size_t i2 = group1 << k; i2 < ((group1 + 1) << k); ++i2) {
+            if (i2 >= level2.size()) break;
+            uint64_t l2 = level2[i2];
+            if (l2 == 0) continue;
+
+            int b2 = __builtin_ctzll(l2);
+            int group2 = i2 * 64 + b2;
+
+            for (size_t i3 = group2 << k; i3 < ((group2 + 1) << k); ++i3) {
+                if (i3 >= level3.size()) break;
+                uint64_t l3 = level3[i3];
+                if (l3 == 0) continue;
+
+                int b3 = __builtin_ctzll(l3);
+                locker.unlock();
+                return static_cast<int>(i3 * 64 + b3);
+            }
+        }
+    }
+
+    locker.unlock();
+    return -1;
 }
 
 int PrioritySet::pop_min() {
@@ -74,11 +128,17 @@ int PrioritySet::pop_min() {
 }
 
 void PrioritySet::print() {
-    std::cout << "PrioritySet: ";
-    for (int i = 0; i < 64; ++i) {
-        if (has(i)) {
-            std::cout << i << " ";
+    std::cout << "PrioritySet contents:" << std::endl;
+    for (size_t i = 0; i < level3.size(); ++i) {
+        uint64_t l3 = level3[i];
+        if (l3 != 0) {
+            std::cout << "Level 3 block " << i << ": ";
+            for (int j = 0; j < 64; ++j) {
+                if (l3 & (1ULL << j)) {
+                    std::cout << (i * 64 + j) << " ";
+                }
+            }
+            std::cout << std::endl;
         }
     }
-    std::cout << std::endl;
 }

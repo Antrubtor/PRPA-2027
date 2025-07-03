@@ -1,16 +1,19 @@
 #pragma once
 #include <atomic>
 #include <mutex>
+#include <vector>
 
 class PrioritySet
 {
     public:
-    int k = 2;
-    std::atomic<uint64_t> level3{0};
-    std::atomic<uint16_t> level2{0};
-    std::atomic<uint8_t>  level1{0};
+    int k;
+    std::vector<uint64_t> level3;
+    std::vector<uint64_t> level2;
+    std::vector<uint64_t> level1;
 
     std::mutex locker;
+
+    PrioritySet(int k_value = 6);
 
     // Insère 'value' s'il n'est pas déjà présent
     // Retourne true si l'insertion a été faite, false sinon
