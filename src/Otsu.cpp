@@ -4,8 +4,6 @@
 // #include <chrono>
 // #include <thread>
 #include <vector>
-// #include <emmintrin.h>
-// #include <tmmintrin.h>
 #include <tbb/tbb.h>
 
 // Single threaded version of the Method
@@ -90,8 +88,7 @@ void otsu_st(ImageView<rgb8> in)
 {
     // TODO
     std::vector<uint32_t> grey_hist = std::vector<uint32_t>(256, 0);
-    // std::vector<uint8_t> grey_img(in.stride * in.height / sizeof(rgb8)); // vecteur pour save tous les calculs de gris: lourd en mémoire, plus rapide
-    std::vector<uint8_t> grey_img(in.stride * in.height); // vecteur pour save tous les calculs de gris: lourd en mémoire, plus rapide
+    std::vector<uint8_t> grey_img(in.width * in.height); // vecteur pour save tous les calculs de gris: lourd en mémoire, plus rapide
 
     for (int y = 0; y < in.height; ++y)
     {
@@ -101,7 +98,6 @@ void otsu_st(ImageView<rgb8> in)
             rgb8 pixel = lineptr[x];
             // 0.299 * 256 = 77 / 0.587 * 256 = 150 / 0.114 * 256 = 29;
             uint8_t grey_value = (77 * pixel.r + 150 * pixel.g + 29 * pixel.b) >> 8;
-            // grey_img[y * (in.stride / sizeof(rgb8)) + x] = grey_value;
             grey_img[y * in.width + x] = grey_value;
             grey_hist[grey_value]++;
         }
@@ -139,7 +135,6 @@ void otsu_st(ImageView<rgb8> in)
         rgb8* lineptr = (rgb8*)((std::byte*)in.buffer + y * in.stride);
         for (int x = 0; x < in.width; ++x)
         {
-            // uint8_t grey = grey_img[y * (in.stride / sizeof(rgb8))+ x]; // réutilisation des calculs du gris
             uint8_t grey = grey_img[y * in.width + x]; // réutilisation des calculs du gris
             uint8_t val = (grey < threshold) ? 0 : 255;
             lineptr[x] = { val, val, val };
